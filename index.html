@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WealthView — Net Worth Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+  --bg: #0A0C10;
+  --surface: #111318;
+  --surface2: #181C24;
+  --border: rgba(255,255,255,0.06);
+  --border-hover: rgba(0,212,170,0.3);
+  --teal: #00D4AA;
+  --teal-dim: rgba(0,212,170,0.15);
+  --teal-glow: 0 0 40px rgba(0,212,170,0.25), 0 0 80px rgba(0,212,170,0.1);
+  --green: #22C55E;
+  --green-dim: rgba(34,197,94,0.12);
+  --red: #EF4444;
+  --red-dim: rgba(239,68,68,0.12);
+  --red-glow: 0 0 40px rgba(239,68,68,0.25), 0 0 80px rgba(239,68,68,0.1);
+  --text: #F1F5F9;
+  --text2: #64748B;
+  --text3: #94A3B8;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+  --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── BACKGROUND ─── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 10%, rgba(0,212,170,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 80%, rgba(99,102,241,0.04) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ─── LAYOUT ─── */
+#app { position: relative; z-index: 1; padding-bottom: 100px; }
+
+.container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+
+/* ─── HEADER ─── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,12,16,0.85);
+  backdrop-filter: blur(20px);
+}
+
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-display); font-size: 20px; font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.logo-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--teal), #0099CC);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+
+.logo span { color: var(--teal); }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+
+.profile-name {
+  font-family: var(--font-mono); font-size: 13px; color: var(--text3);
+  background: none; border: none; color: var(--text3);
+  cursor: pointer; padding: 6px 10px;
+  border-radius: 8px; border: 1px solid transparent;
+  transition: var(--transition);
+}
+.profile-name:hover { border-color: var(--border); background: var(--surface); }
+.profile-name:focus { outline: none; border-color: var(--teal); color: var(--text); }
+
+.btn-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text3); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; font-size: 16px;
+  transition: var(--transition);
+}
+.btn-icon:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-dim); }
+
+/* ─── KPI CARDS ─── */
+.kpi-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  padding: 32px 24px 0;
+  max-width: 1280px; margin: 0 auto;
+}
+
+.kpi-card {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 28px;
+  position: relative; overflow: hidden;
+  transition: var(--transition);
+  cursor: default;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  opacity: 0; transition: var(--transition);
+}
+.kpi-card:hover { transform: translateY(-2px); }
+
+.kpi-card.assets { border-color: rgba(34,197,94,0.2); }
+.kpi-card.assets::before { background: radial-gradient(ellipse at top left, rgba(34,197,94,0.07), transparent); opacity: 1; }
+.kpi-card.liabilities { border-color: rgba(239,68,68,0.2); }
+.kpi-card.liabilities::before { background: radial-gradient(ellipse at top left, rgba(239,68,68,0.07), transparent); opacity: 1; }
+.kpi-card.networth { border-color: rgba(0,212,170,0.3); }
+.kpi-card.networth::before { background: radial-gradient(ellipse at top left, rgba(0,212,170,0.08), transparent); opacity: 1; }
+.kpi-card.networth.negative { border-color: rgba(239,68,68,0.3); box-shadow: var(--red-glow); }
+.kpi-card.networth.positive { box-shadow: var(--teal-glow); }
+
+.kpi-label {
+  font-family: var(--font-mono); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text2); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.kpi-value {
+  font-family: var(--font-display); font-size: 36px; font-weight: 700;
+  letter-spacing: -1px; line-height: 1;
+}
+.kpi-card.assets .kpi-value { color: var(--green); }
+.kpi-card.liabilities .kpi-value { color: var(--red); }
+.kpi-card.networth .kpi-value { color: var(--teal); }
+.kpi-card.networth.negative .kpi-value { color: var(--red); }
+
+.kpi-sub {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text2);
+  margin-top: 8px;
+}
+
+.kpi-icon {
+  position: absolute; right: 24px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 48px; opacity: 0.06;
+}
+
+.last-updated {
+  text-align: center; padding: 12px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+}
+
+/* ─── NAV TABS ─── */
+.nav-tabs {
+  display: flex; align-items: center; gap: 4px;
+  padding: 20px 24px 0;
+  max-width: 1280px; margin: 0 auto;
+}
+
+.tab-btn {
+  padding: 8px 18px; border-radius: 8px;
+  border: 1px solid transparent;
+  background: none; color: var(--text2);
+  font-family: var(--font-body); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: var(--transition);
+}
+.tab-btn:hover { color: var(--text); background: var(--surface); }
+.tab-btn.active {
+  background: var(--teal-dim); color: var(--teal);
+  border-color: rgba(0,212,170,0.2);
+}
+
+/* ─── SECTION ─── */
+.section {
+  display: none;
+  padding: 24px;
+  max-width: 1280px; margin: 0 auto;
+}
+.section.active { display: block; }
+
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-family: var(--font-display); font-size: 22px; font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+/* ─── CARDS ─── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 16px;
+  transition: var(--transition);
+}
+.card:hover { border-color: rgba(255,255,255,0.1); }
+
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-family: var(--font-display); font-size: 15px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.card-total {
+  font-family: var(--font-mono); font-size: 13px;
+  padding: 4px 10px; border-radius: 6px;
+}
+.assets .card-total { color: var(--green); background: var(--green-dim); }
+.liabilities-card .card-total { color: var(--red); background: var(--red-dim); }
+
+/* ─── ITEMS ─── */
+.items-list { display: flex; flex-direction: column; gap: 8px; }
+
+.item-row {
+  display: grid; grid-template-columns: 1fr 160px 1fr auto;
+  gap: 8px; align-items: center;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  transition: var(--transition);
+  animation: slideIn 0.2s ease;
+}
+.item-row:hover { border-color: rgba(255,255,255,0.1); }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(20px); }
+}
+
+.item-input {
+  background: none; border: none;
+  color: var(--text); font-family: var(--font-body); font-size: 13px;
+  padding: 4px 0; width: 100%;
+  border-bottom: 1px solid transparent;
+  transition: var(--transition);
+}
+.item-input:focus { outline: none; border-bottom-color: var(--teal); }
+.item-input::placeholder { color: var(--text2); }
+
+.item-value-input {
+  font-family: var(--font-mono); font-size: 13px; text-align: right;
+}
+
+.item-note-input { color: var(--text2); font-size: 12px; }
+
+.delete-btn {
+  width: 28px; height: 28px; border-radius: 6px;
+  border: 1px solid transparent; background: none;
+  color: var(--text2); cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition); flex-shrink: 0;
+}
+.delete-btn:hover { border-color: rgba(239,68,68,0.3); color: var(--red); background: var(--red-dim); }
+
+/* ─── BUTTONS ─── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  border: 1px solid; font-family: var(--font-body); font-size: 13px;
+  font-weight: 500; cursor: pointer; transition: var(--transition);
+}
+
+.btn-primary {
+  background: var(--teal); color: var(--bg);
+  border-color: var(--teal);
+}
+.btn-primary:hover { background: #00bfa5; box-shadow: 0 0 20px rgba(0,212,170,0.3); }
+
+.btn-ghost {
+  background: none; color: var(--text3);
+  border-color: var(--border);
+}
+.btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.15); background: var(--surface2); }
+
+.btn-danger {
+  background: none; color: var(--red);
+  border-color: rgba(239,68,68,0.3);
+}
+.btn-danger:hover { background: var(--red-dim); }
+
+.add-item-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 0; margin-top: 8px;
+  background: none; border: none; color: var(--teal);
+  font-family: var(--font-mono); font-size: 12px;
+  cursor: pointer; transition: var(--transition);
+  opacity: 0.7;
+}
+.add-item-btn:hover { opacity: 1; }
+
+/* ─── TWO-COL ─── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* ─── ANALYTICS ─── */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.chart-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px;
+}
+.chart-title {
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
+  color: var(--text3); margin-bottom: 16px;
+  text-transform: uppercase; letter-spacing: 0.5px; font-size: 12px;
+}
+.chart-wrapper { position: relative; height: 240px; }
+
+.gauge-container { padding: 24px; }
+.gauge-bar-bg {
+  height: 12px; background: var(--surface2);
+  border-radius: 6px; overflow: hidden; margin: 12px 0;
+}
+.gauge-bar-fill {
+  height: 100%; border-radius: 6px;
+  background: linear-gradient(90deg, var(--green), var(--teal));
+  transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+
+.summary-table {
+  width: 100%; border-collapse: collapse;
+}
+.summary-table th {
+  text-align: left; padding: 10px 12px;
+  font-family: var(--font-mono); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--text2);
+  border-bottom: 1px solid var(--border);
+}
+.summary-table td {
+  padding: 10px 12px; font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.summary-table tr:last-child td { border-bottom: none; }
+.summary-table .val-cell { font-family: var(--font-mono); text-align: right; }
+.summary-table .pct-cell { font-family: var(--font-mono); text-align: right; color: var(--text2); }
+
+/* ─── HISTORY ─── */
+.snapshot-list { display: flex; flex-direction: column; gap: 10px; }
+.snapshot-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); transition: var(--transition);
+}
+.snapshot-item:hover { border-color: rgba(255,255,255,0.1); }
+.snapshot-date { font-family: var(--font-mono); font-size: 12px; color: var(--text2); }
+.snapshot-value { font-family: var(--font-mono); font-size: 15px; font-weight: 500; }
+.snapshot-value.positive { color: var(--teal); }
+.snapshot-value.negative { color: var(--red); }
+
+/* ─── SETTINGS DRAWER ─── */
+.drawer-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px); z-index: 200;
+  opacity: 0; pointer-events: none; transition: 0.3s;
+}
+.drawer-overlay.open { opacity: 1; pointer-events: all; }
+
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 360px; background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: 201; padding: 28px;
+  overflow-y: auto;
+  transform: translateX(100%); transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.drawer.open { transform: translateX(0); }
+
+.drawer-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 28px;
+}
+.drawer-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+
+.settings-group { margin-bottom: 24px; }
+.settings-label {
+  font-family: var(--font-mono); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text2); margin-bottom: 10px; display: block;
+}
+
+.settings-input {
+  width: 100%; padding: 10px 14px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: var(--font-body); font-size: 13px;
+  transition: var(--transition);
+}
+.settings-input:focus { outline: none; border-color: var(--teal); }
+
+.settings-select {
+  width: 100%; padding: 10px 14px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: var(--font-body); font-size: 13px;
+  cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748B' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+  padding-right: 32px;
+}
+.settings-select:focus { outline: none; border-color: var(--teal); }
+
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.toggle-row:last-child { border-bottom: none; }
+.toggle-label { font-size: 13px; color: var(--text3); }
+
+.toggle {
+  width: 40px; height: 22px; border-radius: 11px;
+  background: var(--surface2); border: 1px solid var(--border);
+  cursor: pointer; position: relative; transition: var(--transition);
+}
+.toggle.on { background: var(--teal); border-color: var(--teal); }
+.toggle::after {
+  content: ''; position: absolute;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: white; top: 2px; left: 2px;
+  transition: var(--transition);
+}
+.toggle.on::after { left: 20px; }
+
+.reset-input {
+  width: 100%; padding: 10px 14px;
+  background: var(--surface2); border: 1px solid rgba(239,68,68,0.3);
+  border-radius: var(--radius-sm); color: var(--red);
+  font-family: var(--font-mono); font-size: 13px;
+  margin-bottom: 10px;
+}
+.reset-input:focus { outline: none; border-color: var(--red); }
+
+/* ─── TOAST ─── */
+#toast-container {
+  position: fixed; bottom: 80px; right: 20px;
+  z-index: 300; display: flex; flex-direction: column; gap: 8px;
+}
+
+.toast {
+  padding: 12px 18px; border-radius: var(--radius-sm);
+  background: var(--surface2); border: 1px solid var(--border);
+  font-size: 13px; color: var(--text);
+  backdrop-filter: blur(12px);
+  animation: toastIn 0.3s ease;
+  max-width: 300px;
+}
+.toast.success { border-color: rgba(34,197,94,0.3); color: var(--green); }
+.toast.error { border-color: rgba(239,68,68,0.3); color: var(--red); }
+.toast.info { border-color: rgba(0,212,170,0.3); color: var(--teal); }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── MOBILE NAV ─── */
+.mobile-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(17,19,24,0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  z-index: 100; padding: 8px 0 env(safe-area-inset-bottom);
+}
+
+.mobile-nav-items {
+  display: flex; justify-content: space-around;
+}
+
+.mobile-nav-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 12px; background: none; border: none;
+  color: var(--text2); cursor: pointer; transition: var(--transition);
+  font-family: var(--font-body); font-size: 10px;
+  border-radius: 8px;
+}
+.mobile-nav-btn.active { color: var(--teal); }
+.mobile-nav-btn span { font-size: 18px; }
+
+.fab {
+  position: fixed; bottom: 80px; right: 20px;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--teal); color: var(--bg);
+  border: none; font-size: 24px; cursor: pointer;
+  box-shadow: 0 4px 24px rgba(0,212,170,0.4);
+  display: none; align-items: center; justify-content: center;
+  z-index: 99; transition: var(--transition);
+}
+.fab:hover { transform: scale(1.05); }
+
+/* ─── EMPTY STATE ─── */
+.empty-state {
+  text-align: center; padding: 60px 20px;
+  color: var(--text2);
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+.empty-text { font-size: 14px; }
+
+/* ─── CURRENCY BADGE ─── */
+.currency-badge {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text2); padding: 2px 6px;
+  background: var(--surface2); border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+/* ─── PULSE ANIMATION ─── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.positive-pulse { animation: pulse 2s ease infinite; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .kpi-row { grid-template-columns: 1fr; }
+  .two-col { grid-template-columns: 1fr; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .item-row { grid-template-columns: 1fr auto auto; }
+  .item-note-input { display: none; }
+  .mobile-nav { display: block; }
+  .fab { display: flex; }
+  header { padding: 14px 16px; }
+  .section { padding: 16px; }
+  .kpi-row { padding: 16px 16px 0; }
+  .kpi-value { font-size: 28px; }
+  .drawer { width: 100%; border-left: none; border-top: 1px solid var(--border); top: auto; height: 90vh; border-radius: 16px 16px 0 0; }
+  .nav-tabs { overflow-x: auto; padding-bottom: 0; }
+  .tab-btn { white-space: nowrap; }
+}
+
+@media (max-width: 480px) {
+  .kpi-value { font-size: 24px; }
+  .item-row { grid-template-columns: 1fr 120px auto; }
+}
+
+/* ─── FILE INPUT ─── */
+input[type="file"] { display: none; }
+.file-label {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface2);
+  color: var(--text3); font-family: var(--font-body); font-size: 13px;
+  cursor: pointer; transition: var(--transition);
+}
+.file-label:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+
+/* ─── DIVIDER ─── */
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+/* ─── PROGRESS ROW ─── */
+.progress-row { margin-bottom: 12px; }
+.progress-info { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
+.progress-bar-bg { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📊</div>
+      Wealth<span>View</span>
+    </div>
+    <div class="header-right">
+      <input type="text" class="profile-name" id="profileName" placeholder="Your Name" title="Click to edit">
+      <button class="btn-icon" onclick="openSettings()" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-row">
+    <div class="kpi-card assets">
+      <div class="kpi-label">💰 Total Assets</div>
+      <div class="kpi-value" id="kpiAssets">0</div>
+      <div class="kpi-sub" id="kpiAssetsCount">0 items</div>
+      <div class="kpi-icon">💰</div>
+    </div>
+    <div class="kpi-card liabilities">
+      <div class="kpi-label">💳 Total Liabilities</div>
+      <div class="kpi-value" id="kpiLiabilities">0</div>
+      <div class="kpi-sub" id="kpiLiabCount">0 items</div>
+      <div class="kpi-icon">💳</div>
+    </div>
+    <div class="kpi-card networth" id="networthCard">
+      <div class="kpi-label">📈 Net Worth</div>
+      <div class="kpi-value" id="kpiNetWorth">0</div>
+      <div class="kpi-sub" id="kpiRatio">Debt-to-asset ratio: 0%</div>
+      <div class="kpi-icon">📈</div>
+    </div>
+  </div>
+  <div class="last-updated" id="lastUpdated">Last updated: —</div>
+
+  <!-- NAV TABS -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('assets')">Assets</button>
+    <button class="tab-btn" onclick="switchTab('liabilities')">Liabilities</button>
+    <button class="tab-btn" onclick="switchTab('analytics')">Analytics</button>
+    <button class="tab-btn" onclick="switchTab('history')">History</button>
+  </div>
+
+  <!-- DASHBOARD TAB -->
+  <div class="section active" id="tab-dashboard">
+    <div class="section-header">
+      <div class="section-title">Overview</div>
+      <button class="btn btn-primary" onclick="saveSnapshot()">📸 Save Snapshot</button>
+    </div>
+    <div id="dashboardContent">
+      <div class="empty-state" id="dashEmptyState">
+        <div class="empty-icon">📊</div>
+        <div class="empty-text">Add assets and liabilities to see your net worth dashboard</div>
+      </div>
+      <div id="dashSummary" style="display:none">
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">Asset Allocation</div>
+            <div class="chart-wrapper"><canvas id="assetDonut"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Liability Breakdown</div>
+            <div class="chart-wrapper"><canvas id="liabDonut"></canvas></div>
+          </div>
+        </div>
+        <div class="card gauge-container">
+          <div class="chart-title">Debt Coverage Ratio</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:13px;color:var(--text3)">Assets cover liabilities by</span>
+            <span style="font-family:var(--font-mono);color:var(--teal)" id="gaugeText">0%</span>
+          </div>
+          <div class="gauge-bar-bg"><div class="gauge-bar-fill" id="gaugeBar" style="width:0%"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--text2)">
+            <span>Insolvent</span><span>Breaking Even</span><span>Debt-Free</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="chart-title" style="margin-bottom:16px">Category Summary</div>
+          <table class="summary-table" id="summaryTable"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ASSETS TAB -->
+  <div class="section" id="tab-assets">
+    <div class="section-header">
+      <div class="section-title">Assets</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="currency-badge" id="assetsCurrBadge">USD</span>
+      </div>
+    </div>
+    <div id="assetsContainer" class="assets"></div>
+  </div>
+
+  <!-- LIABILITIES TAB -->
+  <div class="section" id="tab-liabilities">
+    <div class="section-header">
+      <div class="section-title">Liabilities</div>
+      <span class="currency-badge" id="liabCurrBadge">USD</span>
+    </div>
+    <div id="liabilitiesContainer" class="liabilities-card"></div>
+  </div>
+
+  <!-- ANALYTICS TAB -->
+  <div class="section" id="tab-analytics">
+    <div class="section-header">
+      <div class="section-title">Analytics</div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Assets by Category</div>
+        <div class="chart-wrapper"><canvas id="assetDonut2"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Liabilities by Category</div>
+        <div class="chart-wrapper"><canvas id="liabDonut2"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-card" style="margin-bottom:16px">
+      <div class="chart-title">Assets vs Liabilities by Category</div>
+      <div class="chart-wrapper" style="height:320px"><canvas id="barChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="chart-title" style="margin-bottom:16px">Detailed Breakdown</div>
+      <div id="analyticsBreakdown"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="section" id="tab-history">
+    <div class="section-header">
+      <div class="section-title">Snapshots</div>
+      <button class="btn btn-primary" onclick="saveSnapshot()">📸 Save Snapshot</button>
+    </div>
+    <div class="chart-card" style="margin-bottom:16px">
+      <div class="chart-title">Net Worth Over Time</div>
+      <div class="chart-wrapper"><canvas id="historyChart"></canvas></div>
+    </div>
+    <div class="snapshot-list" id="snapshotList"></div>
+    <div class="empty-state" id="historyEmpty" style="display:none">
+      <div class="empty-icon">📸</div>
+      <div class="empty-text">No snapshots yet. Save one from the Dashboard tab.</div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- SETTINGS DRAWER -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeSettings()"></div>
+<div class="drawer" id="settingsDrawer">
+  <div class="drawer-header">
+    <div class="drawer-title">Settings</div>
+    <button class="btn-icon" onclick="closeSettings()">✕</button>
+  </div>
+
+  <div class="settings-group">
+    <label class="settings-label">Profile Name</label>
+    <input type="text" class="settings-input" id="settingsName" placeholder="Your Name" oninput="updateProfileName()">
+  </div>
+
+  <div class="settings-group">
+    <label class="settings-label">Default Currency</label>
+    <select class="settings-select" id="settingsCurrency" onchange="updateCurrency()">
+      <option value="USD">🇺🇸 USD — US Dollar ($)</option>
+      <option value="INR">🇮🇳 INR — Indian Rupee (₹)</option>
+      <option value="EUR">🇪🇺 EUR — Euro (€)</option>
+      <option value="GBP">🇬🇧 GBP — British Pound (£)</option>
+    </select>
+  </div>
+
+  <div class="settings-group">
+    <label class="settings-label">Display</label>
+    <div class="toggle-row">
+      <span class="toggle-label">Show zero-value categories</span>
+      <div class="toggle" id="toggleZero" onclick="toggleSetting('showZero')"></div>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Compact mode</span>
+      <div class="toggle" id="toggleCompact" onclick="toggleSetting('compact')"></div>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <label class="settings-label">Data</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="exportData()">⬇ Export JSON</button>
+      <label class="file-label">
+        ⬆ Import JSON
+        <input type="file" id="importFile" accept=".json" onchange="importData(event)">
+      </label>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="settings-group">
+    <label class="settings-label" style="color:var(--red)">Danger Zone</label>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Type <code style="color:var(--red)">RESET</code> to confirm deletion of all data.</p>
+    <input type="text" class="reset-input" id="resetInput" placeholder="Type RESET here...">
+    <button class="btn btn-danger" onclick="resetAllData()" style="width:100%">🗑 Reset All Data</button>
+  </div>
+</div>
+
+<!-- MOBILE NAV -->
+<div class="mobile-nav">
+  <div class="mobile-nav-items">
+    <button class="mobile-nav-btn active" onclick="switchTab('dashboard');setMobileActive(this)">
+      <span>📊</span>Dashboard
+    </button>
+    <button class="mobile-nav-btn" onclick="switchTab('assets');setMobileActive(this)">
+      <span>💰</span>Assets
+    </button>
+    <button class="mobile-nav-btn" onclick="switchTab('liabilities');setMobileActive(this)">
+      <span>💳</span>Debts
+    </button>
+    <button class="mobile-nav-btn" onclick="switchTab('history');setMobileActive(this)">
+      <span>📸</span>History
+    </button>
+    <button class="mobile-nav-btn" onclick="openSettings()">
+      <span>⚙</span>Settings
+    </button>
+  </div>
+</div>
+
+<button class="fab" id="fab" onclick="fabAction()">＋</button>
+
+<div id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const CURRENCIES = {
+  USD: { symbol: '$', name: 'USD' },
+  INR: { symbol: '₹', name: 'INR' },
+  EUR: { symbol: '€', name: 'EUR' },
+  GBP: { symbol: '£', name: 'GBP' },
+};
+
+const ASSET_CATEGORIES = [
+  { id: 'real_estate', label: '🏠 Real Estate', items: [] },
+  { id: 'investments', label: '📈 Investments', items: [] },
+  { id: 'cash', label: '🏦 Cash & Bank Accounts', items: [] },
+  { id: 'vehicles', label: '🚗 Vehicles', items: [] },
+  { id: 'personal', label: '💍 Personal Property', items: [] },
+  { id: 'business', label: '🏢 Business Assets', items: [] },
+  { id: 'retirement', label: '🎓 Retirement Accounts', items: [] },
+  { id: 'custom_asset', label: '➕ Custom Assets', items: [] },
+];
+
+const LIAB_CATEGORIES = [
+  { id: 'home_loan', label: '🏠 Home Loan / Mortgage', items: [] },
+  { id: 'vehicle_loan', label: '🚗 Vehicle Loan', items: [] },
+  { id: 'edu_loan', label: '🎓 Education Loan', items: [] },
+  { id: 'credit_card', label: '💳 Credit Card Debt', items: [] },
+  { id: 'medical', label: '🏥 Medical Debt', items: [] },
+  { id: 'personal_loan', label: '👤 Personal Loans', items: [] },
+  { id: 'biz_loan', label: '💼 Business Loans', items: [] },
+  { id: 'custom_liab', label: '➕ Custom Liabilities', items: [] },
+];
+
+let state = {
+  profileName: '',
+  currency: 'USD',
+  showZero: false,
+  compact: false,
+  assets: ASSET_CATEGORIES.map(c => ({ ...c, items: [] })),
+  liabilities: LIAB_CATEGORIES.map(c => ({ ...c, items: [] })),
+  snapshots: [],
+};
+
+let charts = {};
+let countupTimers = {};
+
+// ═══════════════════════════════════════════════════════
+// PERSISTENCE
+// ═══════════════════════════════════════════════════════
+function saveState() {
+  localStorage.setItem('wealthview_v2', JSON.stringify(state));
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('wealthview_v2');
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // Merge saved items into default categories
+      state.profileName = saved.profileName || '';
+      state.currency = saved.currency || 'USD';
+      state.showZero = saved.showZero || false;
+      state.compact = saved.compact || false;
+      state.snapshots = saved.snapshots || [];
+      // Merge asset categories
+      if (saved.assets) {
+        saved.assets.forEach(savedCat => {
+          const cat = state.assets.find(c => c.id === savedCat.id);
+          if (cat) cat.items = savedCat.items || [];
+        });
+      }
+      if (saved.liabilities) {
+        saved.liabilities.forEach(savedCat => {
+          const cat = state.liabilities.find(c => c.id === savedCat.id);
+          if (cat) cat.items = savedCat.items || [];
+        });
+      }
+    }
+  } catch(e) { console.warn('State load error', e); }
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════
+function getCurrencySymbol() {
+  return CURRENCIES[state.currency]?.symbol || '$';
+}
+
+function formatNum(n) {
+  const abs = Math.abs(n);
+  if (abs >= 10000000) return `${(n/10000000).toFixed(2)}Cr`;
+  if (abs >= 100000) return `${(n/100000).toFixed(2)}L`;
+  return n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+
+function formatValue(n) {
+  return getCurrencySymbol() + formatNum(n);
+}
+
+function parseValue(str) {
+  return parseFloat(str.replace(/[^0-9.-]/g, '')) || 0;
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function getTotals() {
+  let totalAssets = 0, totalLiab = 0, assetCount = 0, liabCount = 0;
+  state.assets.forEach(cat => {
+    cat.items.forEach(item => {
+      totalAssets += item.value || 0;
+      if (item.value > 0) assetCount++;
+    });
+  });
+  state.liabilities.forEach(cat => {
+    cat.items.forEach(item => {
+      totalLiab += item.value || 0;
+      if (item.value > 0) liabCount++;
+    });
+  });
+  return { totalAssets, totalLiab, netWorth: totalAssets - totalLiab, assetCount, liabCount };
+}
+
+// ═══════════════════════════════════════════════════════
+// COUNTUP ANIMATION
+// ═══════════════════════════════════════════════════════
+function animateCountup(elId, target, duration = 600) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (countupTimers[elId]) cancelAnimationFrame(countupTimers[elId]);
+  const start = Date.now();
+  const prefix = target < 0 ? '-' : '';
+  const abs = Math.abs(target);
+  function step() {
+    const elapsed = Date.now() - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = abs * eased;
+    el.textContent = prefix + getCurrencySymbol() + formatNum(current);
+    if (progress < 1) countupTimers[elId] = requestAnimationFrame(step);
+    else el.textContent = formatValue(target);
+  }
+  step();
+}
+
+// ═══════════════════════════════════════════════════════
+// KPI UPDATE
+// ═══════════════════════════════════════════════════════
+function updateKPIs() {
+  const { totalAssets, totalLiab, netWorth, assetCount, liabCount } = getTotals();
+  animateCountup('kpiAssets', totalAssets);
+  animateCountup('kpiLiabilities', totalLiab);
+  animateCountup('kpiNetWorth', netWorth);
+
+  document.getElementById('kpiAssetsCount').textContent = `${assetCount} item${assetCount !== 1 ? 's' : ''}`;
+  document.getElementById('kpiLiabCount').textContent = `${liabCount} item${liabCount !== 1 ? 's' : ''}`;
+
+  const ratio = totalAssets > 0 ? ((totalLiab / totalAssets) * 100).toFixed(1) : 0;
+  document.getElementById('kpiRatio').textContent = `Debt-to-asset ratio: ${ratio}%`;
+
+  const card = document.getElementById('networthCard');
+  card.classList.remove('positive', 'negative', 'positive-pulse');
+  if (netWorth > 0) {
+    card.classList.add('positive', 'positive-pulse');
+  } else if (netWorth < 0) {
+    card.classList.add('negative');
+    card.style.animation = 'shake 0.4s ease';
+    setTimeout(() => card.style.animation = '', 400);
+  }
+
+  // Update currency badges
+  document.getElementById('assetsCurrBadge').textContent = state.currency;
+  document.getElementById('liabCurrBadge').textContent = state.currency;
+
+  document.getElementById('lastUpdated').textContent =
+    `Last updated: ${new Date().toLocaleString()}`;
+
+  saveState();
+  updateDashboard();
+}
+
+// ═══════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════
+function updateDashboard() {
+  const { totalAssets, totalLiab, netWorth } = getTotals();
+  const hasData = totalAssets > 0 || totalLiab > 0;
+
+  document.getElementById('dashEmptyState').style.display = hasData ? 'none' : 'block';
+  document.getElementById('dashSummary').style.display = hasData ? 'block' : 'none';
+
+  if (!hasData) return;
+
+  // Gauge
+  const coverage = totalLiab > 0 ? Math.min((totalAssets / totalLiab) * 100, 200) : 100;
+  const pct = Math.min(coverage / 2, 100);
+  document.getElementById('gaugeBar').style.width = pct + '%';
+  document.getElementById('gaugeText').textContent = coverage.toFixed(0) + '%';
+
+  // Summary table
+  buildSummaryTable();
+  renderDashCharts();
+}
+
+function buildSummaryTable() {
+  const { totalAssets, totalLiab } = getTotals();
+  let html = `<thead><tr>
+    <th>Category</th>
+    <th class="val-cell">Value</th>
+    <th class="pct-cell">% of Total</th>
+  </tr></thead><tbody>`;
+
+  const total = totalAssets + totalLiab || 1;
+  state.assets.forEach(cat => {
+    const sum = cat.items.reduce((a, b) => a + (b.value || 0), 0);
+    if (!sum && !state.showZero) return;
+    html += `<tr>
+      <td style="color:var(--text3)">${cat.label}</td>
+      <td class="val-cell" style="color:var(--green)">${formatValue(sum)}</td>
+      <td class="pct-cell">${((sum/total)*100).toFixed(1)}%</td>
+    </tr>`;
+  });
+  state.liabilities.forEach(cat => {
+    const sum = cat.items.reduce((a, b) => a + (b.value || 0), 0);
+    if (!sum && !state.showZero) return;
+    html += `<tr>
+      <td style="color:var(--text3)">${cat.label}</td>
+      <td class="val-cell" style="color:var(--red)">-${formatValue(sum)}</td>
+      <td class="pct-cell">${((sum/total)*100).toFixed(1)}%</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('summaryTable').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════════════
+const ASSET_COLORS = ['#00D4AA','#22C55E','#06B6D4','#3B82F6','#8B5CF6','#F59E0B','#10B981','#6366F1'];
+const LIAB_COLORS  = ['#EF4444','#F97316','#FBBF24','#EC4899','#8B5CF6','#E11D48','#DC2626','#B91C1C'];
+
+function getChartDefaults() {
+  return {
+    plugins: {
+      legend: { labels: { color: '#94A3B8', font: { family: 'DM Mono', size: 11 }, boxWidth: 12, padding: 12 } },
+      tooltip: {
+        backgroundColor: '#181C24', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1,
+        titleColor: '#F1F5F9', bodyColor: '#94A3B8',
+        callbacks: { label: ctx => ` ${formatValue(ctx.parsed)}` }
+      }
+    }
+  };
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function renderDashCharts() {
+  const assetData = state.assets
+    .map(c => ({ label: c.label, value: c.items.reduce((a,b) => a+(b.value||0),0) }))
+    .filter(c => c.value > 0);
+  const liabData = state.liabilities
+    .map(c => ({ label: c.label, value: c.items.reduce((a,b) => a+(b.value||0),0) }))
+    .filter(c => c.value > 0);
+
+  destroyChart('assetDonut');
+  if (assetData.length) {
+    charts['assetDonut'] = new Chart(document.getElementById('assetDonut'), {
+      type: 'doughnut',
+      data: {
+        labels: assetData.map(d => d.label),
+        datasets: [{ data: assetData.map(d => d.value), backgroundColor: ASSET_COLORS, borderWidth: 0, hoverOffset: 8 }]
+      },
+      options: { ...getChartDefaults(), cutout: '68%', plugins: { ...getChartDefaults().plugins } }
+    });
+  }
+
+  destroyChart('liabDonut');
+  if (liabData.length) {
+    charts['liabDonut'] = new Chart(document.getElementById('liabDonut'), {
+      type: 'doughnut',
+      data: {
+        labels: liabData.map(d => d.label),
+        datasets: [{ data: liabData.map(d => d.value), backgroundColor: LIAB_COLORS, borderWidth: 0, hoverOffset: 8 }]
+      },
+      options: { ...getChartDefaults(), cutout: '68%' }
+    });
+  }
+}
+
+function renderAnalyticsCharts() {
+  const assetData = state.assets
+    .map(c => ({ label: c.label, value: c.items.reduce((a,b) => a+(b.value||0),0) }))
+    .filter(c => c.value > 0);
+  const liabData = state.liabilities
+    .map(c => ({ label: c.label, value: c.items.reduce((a,b) => a+(b.value||0),0) }))
+    .filter(c => c.value > 0);
+
+  destroyChart('assetDonut2');
+  if (assetData.length) {
+    charts['assetDonut2'] = new Chart(document.getElementById('assetDonut2'), {
+      type: 'doughnut',
+      data: {
+        labels: assetData.map(d => d.label),
+        datasets: [{ data: assetData.map(d => d.value), backgroundColor: ASSET_COLORS, borderWidth: 0, hoverOffset: 8 }]
+      },
+      options: { ...getChartDefaults(), cutout: '68%' }
+    });
+  }
+
+  destroyChart('liabDonut2');
+  if (liabData.length) {
+    charts['liabDonut2'] = new Chart(document.getElementById('liabDonut2'), {
+      type: 'doughnut',
+      data: {
+        labels: liabData.map(d => d.label),
+        datasets: [{ data: liabData.map(d => d.value), backgroundColor: LIAB_COLORS, borderWidth: 0, hoverOffset: 8 }]
+      },
+      options: { ...getChartDefaults(), cutout: '68%' }
+    });
+  }
+
+  // Bar chart
+  const allCats = [
+    ...state.assets.map(c => ({ label: c.label, asset: c.items.reduce((a,b)=>a+(b.value||0),0), liab: 0 })),
+    ...state.liabilities.map(c => ({ label: c.label, asset: 0, liab: c.items.reduce((a,b)=>a+(b.value||0),0) }))
+  ].filter(c => c.asset > 0 || c.liab > 0);
+
+  destroyChart('barChart');
+  if (allCats.length) {
+    charts['barChart'] = new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: {
+        labels: allCats.map(c => c.label.replace(/^[^\s]+\s/, '')),
+        datasets: [
+          { label: 'Assets', data: allCats.map(c => c.asset), backgroundColor: 'rgba(34,197,94,0.7)', borderRadius: 6 },
+          { label: 'Liabilities', data: allCats.map(c => c.liab), backgroundColor: 'rgba(239,68,68,0.7)', borderRadius: 6 }
+        ]
+      },
+      options: {
+        ...getChartDefaults(),
+        indexAxis: 'y',
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { family: 'DM Mono', size: 11 }, callback: v => getCurrencySymbol()+formatNum(v) } },
+          y: { grid: { display: false }, ticks: { color: '#94A3B8', font: { family: 'DM Sans', size: 12 } } }
+        }
+      }
+    });
+  }
+
+  // Breakdown bars
+  const { totalAssets } = getTotals();
+  let html = '';
+  state.assets.forEach((cat, i) => {
+    const sum = cat.items.reduce((a,b)=>a+(b.value||0),0);
+    if (!sum && !state.showZero) return;
+    const pct = totalAssets > 0 ? ((sum/totalAssets)*100).toFixed(1) : 0;
+    html += `<div class="progress-row">
+      <div class="progress-info">
+        <span style="color:var(--text3)">${cat.label}</span>
+        <span style="font-family:var(--font-mono);color:var(--green)">${formatValue(sum)} <span style="color:var(--text2)">${pct}%</span></span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%;background:${ASSET_COLORS[i%ASSET_COLORS.length]}"></div></div>
+    </div>`;
+  });
+  document.getElementById('analyticsBreakdown').innerHTML = html || '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No data to display</div></div>';
+}
+
+function renderHistoryChart() {
+  const snaps = state.snapshots.slice(-24);
+  destroyChart('historyChart');
+  if (!snaps.length) {
+    document.getElementById('historyEmpty').style.display = 'block';
+    return;
+  }
+  document.getElementById('historyEmpty').style.display = 'none';
+  charts['historyChart'] = new Chart(document.getElementById('historyChart'), {
+    type: 'line',
+    data: {
+      labels: snaps.map(s => new Date(s.ts).toLocaleDateString()),
+      datasets: [{
+        label: 'Net Worth',
+        data: snaps.map(s => s.netWorth),
+        borderColor: '#00D4AA',
+        backgroundColor: (ctx) => {
+          const g = ctx.chart.ctx.createLinearGradient(0,0,0,200);
+          g.addColorStop(0,'rgba(0,212,170,0.25)');
+          g.addColorStop(1,'rgba(0,212,170,0)');
+          return g;
+        },
+        fill: true, tension: 0.4, pointBackgroundColor: '#00D4AA',
+        pointRadius: 4, pointHoverRadius: 6, borderWidth: 2,
+      }]
+    },
+    options: {
+      ...getChartDefaults(),
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { family: 'DM Mono', size: 11 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { family: 'DM Mono', size: 11 }, callback: v => getCurrencySymbol()+formatNum(v) } }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// ITEM MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function addItem(type, catId) {
+  const arr = type === 'asset' ? state.assets : state.liabilities;
+  const cat = arr.find(c => c.id === catId);
+  if (!cat) return;
+  cat.items.push({ id: uid(), name: '', value: 0, note: '' });
+  renderCategories(type);
+  updateKPIs();
+  // Focus last name input
+  setTimeout(() => {
+    const inputs = document.querySelectorAll(`[data-catid="${catId}"] .item-name-input`);
+    if (inputs.length) inputs[inputs.length-1].focus();
+  }, 50);
+}
+
+function deleteItem(type, catId, itemId) {
+  const arr = type === 'asset' ? state.assets : state.liabilities;
+  const cat = arr.find(c => c.id === catId);
+  if (!cat) return;
+  const idx = cat.items.findIndex(i => i.id === itemId);
+  if (idx === -1) return;
+  const row = document.querySelector(`[data-itemid="${itemId}"]`);
+  if (row) {
+    row.style.animation = 'slideOut 0.2s ease forwards';
+    setTimeout(() => {
+      cat.items.splice(idx, 1);
+      renderCategories(type);
+      updateKPIs();
+    }, 200);
+  } else {
+    cat.items.splice(idx, 1);
+    renderCategories(type);
+    updateKPIs();
+  }
+}
+
+function updateItem(type, catId, itemId, field, value) {
+  const arr = type === 'asset' ? state.assets : state.liabilities;
+  const cat = arr.find(c => c.id === catId);
+  if (!cat) return;
+  const item = cat.items.find(i => i.id === itemId);
+  if (!item) return;
+  if (field === 'value') {
+    item.value = parseValue(value);
+  } else {
+    item[field] = value;
+  }
+  updateKPIs();
+}
+
+function formatValueInput(input) {
+  const raw = parseValue(input.value);
+  if (!isNaN(raw) && raw !== 0) {
+    input.dataset.raw = raw;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER CATEGORIES
+// ═══════════════════════════════════════════════════════
+function renderCategories(type) {
+  const arr = type === 'asset' ? state.assets : state.liabilities;
+  const containerId = type === 'asset' ? 'assetsContainer' : 'liabilitiesContainer';
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  arr.forEach(cat => {
+    const sum = cat.items.reduce((a, b) => a + (b.value || 0), 0);
+    if (!sum && !state.showZero && cat.items.length === 0) {
+      // Show only if setting is on, or always show categories regardless to allow adding
+    }
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.catid = cat.id;
+
+    const itemsHtml = cat.items.map(item => `
+      <div class="item-row" data-itemid="${item.id}">
+        <input type="text"
+          class="item-input item-name-input"
+          placeholder="Name / description"
+          value="${escapeHtml(item.name)}"
+          onchange="updateItem('${type}','${cat.id}','${item.id}','name',this.value)"
+          onkeydown="handleItemKeydown(event,'${type}','${cat.id}','${item.id}')">
+        <input type="text"
+          class="item-input item-value-input"
+          placeholder="0"
+          value="${item.value ? formatNum(item.value) : ''}"
+          oninput="updateItem('${type}','${cat.id}','${item.id}','value',this.value)"
+          onkeydown="handleItemKeydown(event,'${type}','${cat.id}','${item.id}')">
+        <input type="text"
+          class="item-input item-note-input"
+          placeholder="Note (optional)"
+          value="${escapeHtml(item.note || '')}"
+          onchange="updateItem('${type}','${cat.id}','${item.id}','note',this.value)">
+        <button class="delete-btn" onclick="deleteItem('${type}','${cat.id}','${item.id}')" title="Delete">✕</button>
+      </div>
+    `).join('');
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="card-title">${cat.label}</div>
+        <span class="card-total ${type === 'asset' ? '' : 'liabilities-card'}" style="${type === 'asset' ? 'color:var(--green);background:var(--green-dim)' : 'color:var(--red);background:var(--red-dim)'}">
+          ${type === 'asset' ? '' : '-'}${formatValue(sum)}
+        </span>
+      </div>
+      <div class="items-list">${itemsHtml || '<div style="color:var(--text2);font-size:12px;padding:4px 0">No items yet</div>'}</div>
+      <button class="add-item-btn" onclick="addItem('${type}','${cat.id}')">＋ Add item</button>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function handleItemKeydown(e, type, catId, itemId) {
+  if (e.key === 'Enter') e.target.blur();
+  if (e.key === 'Escape') {
+    e.target.value = '';
+    e.target.blur();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════
+let currentTab = 'dashboard';
+
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.getAttribute('onclick')?.includes(`'${tab}'`)) b.classList.add('active');
+  });
+  currentTab = tab;
+
+  if (tab === 'analytics') renderAnalyticsCharts();
+  if (tab === 'history') { renderHistoryChart(); renderSnapshotList(); }
+}
+
+function setMobileActive(btn) {
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+function openSettings() {
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.getElementById('settingsDrawer').classList.add('open');
+  document.getElementById('settingsName').value = state.profileName;
+  document.getElementById('settingsCurrency').value = state.currency;
+  updateToggleUI();
+}
+
+function closeSettings() {
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('settingsDrawer').classList.remove('open');
+}
+
+function updateProfileName() {
+  state.profileName = document.getElementById('settingsName').value;
+  document.getElementById('profileName').value = state.profileName;
+  saveState();
+}
+
+function updateCurrency() {
+  state.currency = document.getElementById('settingsCurrency').value;
+  renderCategories('asset');
+  renderCategories('liability');
+  updateKPIs();
+  toast(`Currency set to ${state.currency}`, 'info');
+}
+
+function toggleSetting(key) {
+  state[key] = !state[key];
+  updateToggleUI();
+  if (key === 'showZero') {
+    renderCategories('asset');
+    renderCategories('liability');
+  }
+  if (key === 'compact') {
+    document.documentElement.style.setProperty('--compact', state.compact ? '1' : '0');
+  }
+  saveState();
+}
+
+function updateToggleUI() {
+  ['showZero','compact'].forEach(key => {
+    const id = key === 'showZero' ? 'toggleZero' : 'toggleCompact';
+    document.getElementById(id).classList.toggle('on', state[key]);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// SNAPSHOTS
+// ═══════════════════════════════════════════════════════
+function saveSnapshot() {
+  const { totalAssets, totalLiab, netWorth } = getTotals();
+  if (state.snapshots.length >= 24) state.snapshots.shift();
+  state.snapshots.push({
+    id: uid(),
+    ts: Date.now(),
+    totalAssets, totalLiab, netWorth
+  });
+  saveState();
+  toast('Snapshot saved!', 'success');
+  if (currentTab === 'history') { renderHistoryChart(); renderSnapshotList(); }
+}
+
+function deleteSnapshot(id) {
+  state.snapshots = state.snapshots.filter(s => s.id !== id);
+  saveState();
+  renderHistoryChart();
+  renderSnapshotList();
+  toast('Snapshot deleted', 'info');
+}
+
+function renderSnapshotList() {
+  const list = document.getElementById('snapshotList');
+  const empty = document.getElementById('historyEmpty');
+  if (!state.snapshots.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = [...state.snapshots].reverse().map(s => `
+    <div class="snapshot-item">
+      <div>
+        <div class="snapshot-date">${new Date(s.ts).toLocaleString()}</div>
+        <div style="font-size:12px;color:var(--text2)">Assets: ${formatValue(s.totalAssets)} · Liabilities: ${formatValue(s.totalLiab)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="snapshot-value ${s.netWorth >= 0 ? 'positive' : 'negative'}">${formatValue(s.netWorth)}</div>
+        <button class="delete-btn" onclick="deleteSnapshot('${s.id}')">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `wealthview-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  toast('Data exported!', 'success');
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      Object.assign(state, data);
+      saveState();
+      init(false);
+      toast('Data imported successfully!', 'success');
+      closeSettings();
+    } catch(err) {
+      toast('Invalid JSON file', 'error');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function resetAllData() {
+  const val = document.getElementById('resetInput').value;
+  if (val !== 'RESET') {
+    toast('Type RESET to confirm', 'error');
+    return;
+  }
+  state = {
+    profileName: '', currency: 'USD', showZero: false, compact: false,
+    assets: ASSET_CATEGORIES.map(c => ({ ...c, items: [] })),
+    liabilities: LIAB_CATEGORIES.map(c => ({ ...c, items: [] })),
+    snapshots: [],
+  };
+  saveState();
+  init(false);
+  closeSettings();
+  document.getElementById('resetInput').value = '';
+  toast('All data reset', 'info');
+}
+
+// ═══════════════════════════════════════════════════════
+// FAB
+// ═══════════════════════════════════════════════════════
+function fabAction() {
+  if (currentTab === 'liabilities') {
+    addItem('liability', state.liabilities[0].id);
+    switchTab('liabilities');
+  } else {
+    addItem('asset', state.assets[0].id);
+    switchTab('assets');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// PROFILE NAME
+// ═══════════════════════════════════════════════════════
+document.getElementById('profileName').addEventListener('change', function() {
+  state.profileName = this.value;
+  document.getElementById('settingsName').value = this.value;
+  saveState();
+});
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+function init(firstLoad = true) {
+  if (firstLoad) loadState();
+
+  document.getElementById('profileName').value = state.profileName;
+  document.getElementById('settingsName').value = state.profileName;
+  document.getElementById('settingsCurrency').value = state.currency;
+  updateToggleUI();
+
+  renderCategories('asset');
+  renderCategories('liability');
+  updateKPIs();
+
+  // Chart.js CDN fallback check
+  if (typeof Chart === 'undefined') {
+    document.querySelectorAll('.chart-wrapper').forEach(w => {
+      w.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:20px">Charts unavailable (Chart.js CDN failed)</div>';
+    });
+  }
+}
+
+init();
+</script>
+</body>
+</html>
